@@ -8,7 +8,7 @@ A personal meal-prep and grocery-list web app for batch cooking lunch and dinner
 
 ## Stages
 1. Targets screen and meal math (breakfast + after-dinner eaten fresh; lunch + dinner batch-cooked) ✅
-2. Recipe search (Spoonacular)
+2. Recipe search (Spoonacular): ranked options, portion scaling, batch ingredients ✅
 3. Grocery list
 4. Favorites
 5. Home-screen app (PWA) and hosting on GitHub Pages

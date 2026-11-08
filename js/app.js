@@ -172,7 +172,18 @@
     });
     $$('.screen').forEach(function (s) { s.hidden = s.dataset.screen !== name; });
     window.scrollTo(0, 0);
+    document.dispatchEvent(new CustomEvent('screen:show', { detail: name }));
   }
+
+  // Shared with the other screens (recipes, grocery list, favorites).
+  window.App = {
+    get state() { return state; },
+    persist: persist,
+    showTab: showTab,
+    mealTargets: function () {
+      return MM.splitTargets(state.targets, MM.clampPct(state.breakfastPct), MM.clampPct(state.afterDinnerPct));
+    }
+  };
 
   function init() {
     renderChips();

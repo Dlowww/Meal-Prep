@@ -19,7 +19,11 @@
       servings: { lunch: 5, dinner: 5 },
       diet: { type: '', intolerances: [], exclude: '' },
       budget: null,
-      apiKey: ''
+      apiKey: '',
+      // Chosen recipes for this week: { recipe } or null.
+      plan: { lunch: null, dinner: null },
+      // Last recipe search, kept so reopening the app doesn't use up searches.
+      search: null
     };
   }
 
