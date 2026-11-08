@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Batch Prep</title>
+  <meta name="description" content="Plan a week of batch-cooked lunches and dinners around your macros.">
+  <meta name="theme-color" content="#1f5a43">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1 class="brand">Batch Prep</h1>
+      <span class="save-status" id="save-status" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <main class="screens">
+    <!-- ============ TARGETS ============ -->
+    <section class="screen" id="screen-targets" data-screen="targets">
+
+      <section class="block" aria-labelledby="h-daily">
+        <h2 class="block-title" id="h-daily">Daily targets</h2>
+        <p class="hint" id="example-note">These are example numbers. Type in yours.</p>
+        <div class="macro-inputs">
+          <label class="field field-cal">
+            <span class="field-label">Calories</span>
+            <span class="input-wrap"><input id="in-calories" type="number" inputmode="numeric" min="0" step="10" data-path="targets.calories"><span class="unit">cal</span></span>
+          </label>
+          <label class="field">
+            <span class="field-label"><i class="dot dot-p"></i>Protein</span>
+            <span class="input-wrap"><input id="in-protein" type="number" inputmode="numeric" min="0" data-path="targets.protein"><span class="unit">g</span></span>
+          </label>
+          <label class="field">
+            <span class="field-label"><i class="dot dot-c"></i>Carbs</span>
+            <span class="input-wrap"><input id="in-carbs" type="number" inputmode="numeric" min="0" data-path="targets.carbs"><span class="unit">g</span></span>
+          </label>
+          <label class="field">
+            <span class="field-label"><i class="dot dot-f"></i>Fat</span>
+            <span class="input-wrap"><input id="in-fat" type="number" inputmode="numeric" min="0" data-path="targets.fat"><span class="unit">g</span></span>
+          </label>
+        </div>
+        <p class="notice" id="macro-check" hidden></p>
+      </section>
+
+      <section class="block" aria-labelledby="h-split">
+        <h2 class="block-title" id="h-split">Your meals each day</h2>
+
+        <div class="slider-row">
+          <label for="in-breakfast" class="field-label">Breakfast share</label>
+          <output id="out-breakfast" for="in-breakfast" class="slider-value">25%</output>
+        </div>
+        <input id="in-breakfast" class="slider" type="range" min="0" max="50" step="1" data-path="breakfastPct">
+        <p class="hint">Breakfast isn't meal-prepped. The rest of your day is split evenly between lunch and dinner.</p>
+
+        <ol class="meals" id="meal-cards">
+          <!-- filled by app.js -->
+        </ol>
+        <p class="breakdown-line" id="breakdown-line"></p>
+      </section>
+
+      <section class="block" aria-labelledby="h-batch">
+        <h2 class="block-title" id="h-batch">This week's batch</h2>
+        <p class="hint">How many portions to cook of each recipe.</p>
+        <div class="stepper-list">
+          <div class="stepper">
+            <span class="field-label" id="lbl-lunch">Lunch servings</span>
+            <div class="stepper-controls" role="group" aria-labelledby="lbl-lunch">
+              <button type="button" class="step-btn" data-step="servings.lunch" data-delta="-1" aria-label="One fewer lunch">−</button>
+              <input id="in-lunch" type="number" inputmode="numeric" min="1" max="21" data-path="servings.lunch" aria-labelledby="lbl-lunch">
+              <button type="button" class="step-btn" data-step="servings.lunch" data-delta="1" aria-label="One more lunch">+</button>
+            </div>
+          </div>
+          <div class="stepper">
+            <span class="field-label" id="lbl-dinner">Dinner servings</span>
+            <div class="stepper-controls" role="group" aria-labelledby="lbl-dinner">
+              <button type="button" class="step-btn" data-step="servings.dinner" data-delta="-1" aria-label="One fewer dinner">−</button>
+              <input id="in-dinner" type="number" inputmode="numeric" min="1" max="21" data-path="servings.dinner" aria-labelledby="lbl-dinner">
+              <button type="button" class="step-btn" data-step="servings.dinner" data-delta="1" aria-label="One more dinner">+</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-diet">
+        <h2 class="block-title" id="h-diet">Diet and allergies</h2>
+        <label class="field">
+          <span class="field-label">Diet type</span>
+          <select id="in-diet" data-path="diet.type">
+            <option value="">No specific diet</option>
+            <option value="high-protein">High-protein</option>
+            <option value="ketogenic">Keto</option>
+            <option value="vegetarian">Vegetarian</option>
+            <option value="vegan">Vegan</option>
+            <option value="pescetarian">Pescetarian</option>
+            <option value="paleo">Paleo</option>
+            <option value="gluten free">Gluten-free</option>
+            <option value="whole30">Whole30</option>
+            <option value="low fodmap">Low FODMAP</option>
+          </select>
+        </label>
+
+        <fieldset class="chips-field">
+          <legend class="field-label">Allergies and intolerances</legend>
+          <div class="chips" id="intolerance-chips"><!-- filled by app.js --></div>
+        </fieldset>
+
+        <label class="field">
+          <span class="field-label">Ingredients to leave out</span>
+          <input id="in-exclude" type="text" autocomplete="off" autocapitalize="none" placeholder="e.g. mushrooms, olives, cilantro" data-path="diet.exclude">
+          <span class="hint">Separate them with commas.</span>
+        </label>
+      </section>
+
+      <section class="block" aria-labelledby="h-budget">
+        <h2 class="block-title" id="h-budget">Weekly grocery budget</h2>
+        <label class="field">
+          <span class="field-label">Budget <span class="optional">optional</span></span>
+          <span class="input-wrap input-money"><span class="unit unit-pre">$</span><input id="in-budget" type="number" inputmode="decimal" min="0" step="1" placeholder="No budget" data-path="budget"></span>
+          <span class="hint">With a budget set, cheaper recipes rank higher and you'll get a warning if the list costs more.</span>
+        </label>
+      </section>
+
+      <section class="block" aria-labelledby="h-key">
+        <h2 class="block-title" id="h-key">Recipe search key</h2>
+        <label class="field">
+          <span class="field-label">Spoonacular API key</span>
+          <span class="input-wrap">
+            <input id="in-apikey" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste your key here" data-path="apiKey">
+            <button type="button" class="ghost-btn" id="toggle-key" aria-controls="in-apikey" aria-pressed="false">Show</button>
+          </span>
+          <span class="hint">Saved only on this phone. It's never part of the app's code.</span>
+        </label>
+        <details class="howto">
+          <summary>How to get a free key</summary>
+          <ol>
+            <li>Open <a href="https://spoonacular.com/food-api/console#Dashboard" target="_blank" rel="noopener">spoonacular.com/food-api/console</a>.</li>
+            <li>Tap <strong>Sign up</strong>, then enter your email and a password. Choose the <strong>Free</strong> plan. No card is needed.</li>
+            <li>Confirm your email using the link Spoonacular sends you.</li>
+            <li>Log in, then open <strong>Profile &amp; API Key</strong> in the menu.</li>
+            <li>Tap <strong>Show / Hide API Key</strong>, copy the long code, and paste it in the box above.</li>
+          </ol>
+        </details>
+      </section>
+    </section>
+
+    <!-- ============ PLACEHOLDERS FOR LATER STAGES ============ -->
+    <section class="screen" id="screen-recipes" data-screen="recipes" hidden>
+      <div class="empty"><h2 class="block-title">Recipes</h2><p>Recipe search arrives in stage 2.</p></div>
+    </section>
+    <section class="screen" id="screen-grocery" data-screen="grocery" hidden>
+      <div class="empty"><h2 class="block-title">Grocery list</h2><p>The combined grocery list arrives in stage 3.</p></div>
+    </section>
+    <section class="screen" id="screen-favorites" data-screen="favorites" hidden>
+      <div class="empty"><h2 class="block-title">Favorites</h2><p>Saved recipes arrive in stage 4.</p></div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <button type="button" class="tab" data-tab="targets" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8" class="fill"/></svg>
+      <span>Targets</span>
+    </button>
+    <button type="button" class="tab" data-tab="recipes">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16a8 8 0 0 1-16 0Z"/><path d="M9 7c0-1.5 1-2 1-3.5M13 7c0-1.5 1-2 1-3.5"/></svg>
+      <span>Recipes</span>
+    </button>
+    <button type="button" class="tab" data-tab="grocery">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v15H5z"/><path d="m8 10 1.5 1.5L12 9M8 15.5l1.5 1.5L12 14.5M14 10.5h2.5M14 16h2.5"/></svg>
+      <span>Grocery</span>
+    </button>
+    <button type="button" class="tab" data-tab="favorites">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10Z"/></svg>
+      <span>Favorites</span>
+    </button>
+  </nav>
+
+  <script src="js/mealmath.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

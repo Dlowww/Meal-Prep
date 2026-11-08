@@ -1,0 +1,8 @@
+{
+  "name": "batch-prep",
+  "private": true,
+  "description": "Meal-prep and grocery-list web app",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
