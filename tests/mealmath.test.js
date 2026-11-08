@@ -73,3 +73,50 @@ test('saved data from an older version gets new defaults filled in', () => {
   assert.equal(merged.servings.dinner, 5);     // default kept
   assert.equal(merged.breakfastPct, 25);
 });
+
+test('after-dinner meal works like breakfast: 25% + 25% leaves 25% each for lunch and dinner', () => {
+  const s = MM.splitTargets({ calories: 2400, protein: 180, carbs: 240, fat: 80 }, 25, 25);
+  const quarter = { calories: 600, protein: 45, carbs: 60, fat: 20 };
+  assert.deepEqual(MM.roundMeal(s.breakfast), quarter);
+  assert.deepEqual(MM.roundMeal(s.lunch), quarter);
+  assert.deepEqual(MM.roundMeal(s.dinner), quarter);
+  assert.deepEqual(MM.roundMeal(s.afterDinner), quarter);
+  assert.equal(
+    MM.formatBreakdown(s),
+    'Breakfast: 600 cal / 45P / 60C / 20F · Lunch: 600 cal / 45P / 60C / 20F · ' +
+    'Dinner: 600 cal / 45P / 60C / 20F · After dinner: 600 cal / 45P / 60C / 20F'
+  );
+});
+
+test('all four meals add back up to the daily total at every slider combination', () => {
+  const daily = { calories: 2735, protein: 203, carbs: 251, fat: 97 };
+  for (let b = 0; b <= 50; b += 5) {
+    for (let a = 0; a <= 50; a += 5) {
+      const s = MM.splitTargets(daily, b, a);
+      for (const k of MM.MACROS) {
+        close(s.breakfast[k] + s.lunch[k] + s.dinner[k] + s.afterDinner[k], daily[k], `${k} at ${b}/${a}`);
+        close(s.afterDinner[k], daily[k] * a / 100, `after dinner ${k} at ${a}%`);
+        close(s.lunch[k], s.dinner[k], `lunch = dinner for ${k}`);
+      }
+    }
+  }
+});
+
+test('different shares: 20% breakfast + 15% after dinner', () => {
+  const s = MM.splitTargets({ calories: 2000, protein: 160, carbs: 200, fat: 60 }, 20, 15);
+  assert.deepEqual(MM.roundMeal(s.breakfast), { calories: 400, protein: 32, carbs: 40, fat: 12 });
+  assert.deepEqual(MM.roundMeal(s.afterDinner), { calories: 300, protein: 24, carbs: 30, fat: 9 });
+  assert.deepEqual(MM.roundMeal(s.lunch), { calories: 650, protein: 52, carbs: 65, fat: 20 }); // 19.5 -> 20
+});
+
+test('after dinner at 0% is left out of the summary line', () => {
+  const s = MM.splitTargets({ calories: 2400, protein: 180, carbs: 240, fat: 80 }, 25, 0);
+  assert.ok(!MM.formatBreakdown(s).includes('After dinner'));
+  assert.equal(MM.roundMeal(s.lunch).calories, 900);
+});
+
+test('older saved data gets the new 25% after-dinner default', () => {
+  const merged = Store.merge(Store.defaults(), { breakfastPct: 30 });
+  assert.equal(merged.afterDinnerPct, 25);
+  assert.equal(merged.breakfastPct, 30);
+});

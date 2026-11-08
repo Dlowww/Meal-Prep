@@ -15,6 +15,7 @@
       targets: { calories: 2400, protein: 180, carbs: 240, fat: 80 },
       usingExampleTargets: true,
       breakfastPct: 25,
+      afterDinnerPct: 25,
       servings: { lunch: 5, dinner: 5 },
       diet: { type: '', intolerances: [], exclude: '' },
       budget: null,

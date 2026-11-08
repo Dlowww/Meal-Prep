@@ -7,7 +7,7 @@ A personal meal-prep and grocery-list web app for batch cooking lunch and dinner
 - Run the tests with `npm test` (needs Node.js 18+).
 
 ## Stages
-1. Targets screen and meal math ✅
+1. Targets screen and meal math (breakfast + after-dinner eaten fresh; lunch + dinner batch-cooked) ✅
 2. Recipe search (Spoonacular)
 3. Grocery list
 4. Favorites

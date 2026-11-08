@@ -3,7 +3,9 @@
  *
  * Rules:
  *  - Breakfast gets `breakfastPct` percent of every daily number (default 25).
- *  - Whatever is left is split evenly between lunch and dinner.
+ *  - The after-dinner meal works the same way with `afterDinnerPct` (default 25).
+ *    Both are eaten fresh, not meal-prepped.
+ *  - Whatever is left is split evenly between lunch and dinner (the batch-cooked meals).
  *
  * Numbers are kept exact here; rounding only happens when they are shown.
  * Works in the browser (window.MealMath) and in Node (for the tests).
@@ -13,6 +15,7 @@
 
   var MACROS = ['calories', 'protein', 'carbs', 'fat'];
   var DEFAULT_BREAKFAST_PCT = 25;
+  var DEFAULT_AFTER_DINNER_PCT = 25;
   var MIN_BREAKFAST_PCT = 0;
   var MAX_BREAKFAST_PCT = 50;
 
@@ -27,17 +30,24 @@
     return Math.min(MAX_BREAKFAST_PCT, Math.max(MIN_BREAKFAST_PCT, n));
   }
 
-  /** Daily targets -> { breakfast, lunch, dinner }, each { calories, protein, carbs, fat }. */
-  function splitTargets(daily, breakfastPct) {
-    var share = clampPct(breakfastPct) / 100;
-    var result = { breakfast: {}, lunch: {}, dinner: {} };
+  /**
+   * Daily targets -> { breakfast, lunch, dinner, afterDinner },
+   * each { calories, protein, carbs, fat }.
+   * A missing afterDinnerPct counts as 0 (no after-dinner meal).
+   */
+  function splitTargets(daily, breakfastPct, afterDinnerPct) {
+    var bShare = clampPct(breakfastPct) / 100;
+    var aShare = (afterDinnerPct == null ? 0 : clampPct(afterDinnerPct)) / 100;
+    var result = { breakfast: {}, lunch: {}, dinner: {}, afterDinner: {} };
     MACROS.forEach(function (key) {
       var total = toNumber(daily && daily[key]);
-      var breakfast = total * share;
-      var eachMain = (total - breakfast) / 2;
+      var breakfast = total * bShare;
+      var afterDinner = total * aShare;
+      var eachMain = (total - breakfast - afterDinner) / 2;
       result.breakfast[key] = breakfast;
       result.lunch[key] = eachMain;
       result.dinner[key] = eachMain;
+      result.afterDinner[key] = afterDinner;
     });
     return result;
   }
@@ -77,18 +87,23 @@
     return r.calories + ' cal / ' + r.protein + 'P / ' + r.carbs + 'C / ' + r.fat + 'F';
   }
 
-  /** "Breakfast: 600 cal / 45P / 60C / 20F · Lunch: … · Dinner: …" */
+  /** "Breakfast: 600 cal / 45P / 60C / 20F · Lunch: … · Dinner: … · After dinner: …" */
   function formatBreakdown(split) {
-    return [
+    var parts = [
       'Breakfast: ' + formatMeal(split.breakfast),
       'Lunch: ' + formatMeal(split.lunch),
       'Dinner: ' + formatMeal(split.dinner)
-    ].join(' · ');
+    ];
+    if (split.afterDinner && split.afterDinner.calories > 0) {
+      parts.push('After dinner: ' + formatMeal(split.afterDinner));
+    }
+    return parts.join(' · ');
   }
 
   var api = {
     MACROS: MACROS,
     DEFAULT_BREAKFAST_PCT: DEFAULT_BREAKFAST_PCT,
+    DEFAULT_AFTER_DINNER_PCT: DEFAULT_AFTER_DINNER_PCT,
     MIN_BREAKFAST_PCT: MIN_BREAKFAST_PCT,
     MAX_BREAKFAST_PCT: MAX_BREAKFAST_PCT,
     clampPct: clampPct,

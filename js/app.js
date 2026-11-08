@@ -52,7 +52,7 @@
     if (raw === '') return null;
     var n = Number(raw);
     if (!isFinite(n) || n < 0) return null;
-    if (path === 'breakfastPct') return MM.clampPct(n);
+    if (path === 'breakfastPct' || path === 'afterDinnerPct') return MM.clampPct(n);
     return n;
   }
 
@@ -74,18 +74,26 @@
 
   function renderBreakdown() {
     var pct = MM.clampPct(state.breakfastPct);
-    var split = MM.splitTargets(state.targets, pct);
-    var mainPct = (100 - pct) / 2;
+    var aPct = MM.clampPct(state.afterDinnerPct);
+    var split = MM.splitTargets(state.targets, pct, aPct);
+    var mainPct = (100 - pct - aPct) / 2;
     var fmtPct = function (p) { return (Math.round(p * 10) / 10) + '%'; };
 
     $('#out-breakfast').textContent = pct + '%';
     $('#in-breakfast').style.setProperty('--fill', (pct / MM.MAX_BREAKFAST_PCT * 100) + '%');
+    $('#out-afterdinner').textContent = aPct + '%';
+    $('#in-afterdinner').style.setProperty('--fill', (aPct / MM.MAX_BREAKFAST_PCT * 100) + '%');
 
     $('#meal-cards').innerHTML =
       mealCard('Breakfast', 'Eat fresh · ' + fmtPct(pct), split.breakfast, false) +
       mealCard('Lunch', 'Batch cook · ' + fmtPct(mainPct), split.lunch, true) +
-      mealCard('Dinner', 'Batch cook · ' + fmtPct(mainPct), split.dinner, true);
+      mealCard('Dinner', 'Batch cook · ' + fmtPct(mainPct), split.dinner, true) +
+      mealCard('After dinner', 'Eat fresh · ' + fmtPct(aPct), split.afterDinner, false);
     $('#breakdown-line').textContent = MM.formatBreakdown(split);
+
+    var splitCheck = $('#split-check');
+    splitCheck.hidden = mainPct > 0;
+    if (mainPct <= 0) splitCheck.textContent = 'Breakfast and after dinner take up your whole day, so lunch and dinner get nothing. Lower one of the sliders.';
 
     var mismatch = MM.macroCalorieMismatch(state.targets);
     var check = $('#macro-check');

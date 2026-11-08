@@ -55,7 +55,14 @@
           <output id="out-breakfast" for="in-breakfast" class="slider-value">25%</output>
         </div>
         <input id="in-breakfast" class="slider" type="range" min="0" max="50" step="1" data-path="breakfastPct">
-        <p class="hint">Breakfast isn't meal-prepped. The rest of your day is split evenly between lunch and dinner.</p>
+
+        <div class="slider-row">
+          <label for="in-afterdinner" class="field-label">After-dinner share</label>
+          <output id="out-afterdinner" for="in-afterdinner" class="slider-value">25%</output>
+        </div>
+        <input id="in-afterdinner" class="slider" type="range" min="0" max="50" step="1" data-path="afterDinnerPct">
+        <p class="hint">Breakfast and your after-dinner meal are eaten fresh, not meal-prepped. The rest of your day is split evenly between lunch and dinner.</p>
+        <p class="notice" id="split-check" hidden></p>
 
         <ol class="meals" id="meal-cards">
           <!-- filled by app.js -->
