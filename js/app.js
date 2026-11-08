@@ -25,17 +25,16 @@
   }
 
   // ---------- saving ----------
-  var saveTimer = null, statusTimer = null;
+  // Save straight away on every change (it takes a millisecond), so closing
+  // the app right after a tap never loses it. Only the "Saved" message waits.
+  var statusTimer = null;
   function persist() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      var ok = window.Store.save(state);
-      var el = $('#save-status');
-      el.textContent = ok ? 'Saved on this phone' : "Couldn't save. Check that Chrome isn't in Incognito mode.";
-      el.style.opacity = 1;
-      clearTimeout(statusTimer);
-      if (ok) statusTimer = setTimeout(function () { el.style.opacity = 0; }, 1800);
-    }, 250);
+    var ok = window.Store.save(state);
+    var el = $('#save-status');
+    el.textContent = ok ? 'Saved on this phone' : "Couldn't save. Check that Chrome isn't in Incognito mode.";
+    el.style.opacity = 1;
+    clearTimeout(statusTimer);
+    if (ok) statusTimer = setTimeout(function () { el.style.opacity = 0; }, 1800);
   }
 
   // ---------- turning typed text into stored values ----------

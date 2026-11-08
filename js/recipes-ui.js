@@ -292,5 +292,12 @@
 
   document.addEventListener('screen:show', function (e) { if (e.detail === 'recipes') render(); });
 
-  window.RecipesUI = { render: render };
+  /** The batch plan (final amounts, add-on, cost) for a chosen meal, or null. Used by the grocery list. */
+  function planFor(meal) {
+    var p = state().plan && state().plan[meal];
+    if (!p || !p.recipe) return null;
+    return R.batchPlan(p.recipe, target(), state().servings[meal], rankOptions());
+  }
+
+  window.RecipesUI = { render: render, planFor: planFor };
 })();

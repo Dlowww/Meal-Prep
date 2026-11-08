@@ -23,7 +23,10 @@
       // Chosen recipes for this week: { recipe } or null.
       plan: { lunch: null, dinner: null },
       // Last recipe search, kept so reopening the app doesn't use up searches.
-      search: null
+      search: null,
+      // Grocery ticks, kept for the current pair of recipes.
+      grocery: { checked: {}, sig: '' },
+      groceryPantryOpen: false
     };
   }
 
