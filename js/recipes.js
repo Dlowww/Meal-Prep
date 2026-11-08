@@ -9,7 +9,7 @@
   var PAGE_SIZE = 40;          // recipes fetched per search
   var MIN_CAL_FACTOR = 0.6;    // only fetch recipes whose serving is 60%..150% of the meal target,
   var MAX_CAL_FACTOR = 1.5;    // so portions stay a sensible size
-  var WEIGHTS = { protein: 0.5, carbs: 0.25, fat: 0.25 };
+  var Tuning = (typeof module !== 'undefined' && module.exports) ? require('./tuning.js') : root.Tuning;
 
   // ---------- reading Spoonacular data ----------
   var NUTRIENT_NAMES = { Calories: 'calories', Protein: 'protein', Carbohydrates: 'carbs', Fat: 'fat' };
@@ -39,8 +39,24 @@
       servings: r.servings || 1,
       readyInMinutes: r.readyInMinutes || null,
       pricePerServing: Number(r.pricePerServing) || 0,   // US cents
-      perServing: nutritionPerServing(r)
+      perServing: nutritionPerServing(r),
+      ingNut: ingredientNutrition(r.nutrition)
     };
+  }
+
+  /**
+   * Per-serving nutrition of each ingredient, as compact rows:
+   * [id, name, calories, protein, carbs, fat]. Used for macro tuning.
+   */
+  function ingredientNutrition(nutrition) {
+    var list = nutrition && nutrition.ingredients;
+    if (!Array.isArray(list)) return [];
+    var r2 = function (x) { return Math.round((Number(x) || 0) * 100) / 100; };
+    return list.map(function (ing) {
+      var v = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      (ing.nutrients || []).forEach(function (n) { var k = NUTRIENT_NAMES[n.name]; if (k) v[k] = Number(n.amount) || 0; });
+      return [ing.id || null, ing.name || '', r2(v.calories), r2(v.protein), r2(v.carbs), r2(v.fat)];
+    });
   }
 
   function cleanStep(text) {
@@ -77,6 +93,7 @@
       readyInMinutes: info.readyInMinutes || base.readyInMinutes,
       pricePerServing: Number(info.pricePerServing) || base.pricePerServing,
       perServing: base.perServing,
+      ingNut: (function () { var rows = ingredientNutrition(info.nutrition); return rows.length ? rows : (base.ingNut || []); })(),
       ingredients: ingredients,
       steps: steps
     };
@@ -121,7 +138,7 @@
    */
   function searchKey(settings, mealTarget) {
     var d = settings.diet || {};
-    return JSON.stringify([
+    return JSON.stringify(['v2',   // bump when search results need refetching (v2: per-ingredient nutrition)
       Math.round(mealTarget.calories), Math.round(mealTarget.protein), Math.round(mealTarget.carbs), Math.round(mealTarget.fat),
       d.type || '', (d.intolerances || []).slice().sort(), cleanList(d.exclude).map(function (s) { return s.toLowerCase(); }).sort(),
       settings.budget || 0, settings.servings ? [settings.servings.lunch, settings.servings.dinner] : []
@@ -159,34 +176,52 @@
     return { key: key, actual: actual, target: target, rel: rel, status: status };
   }
 
+  // Tuning is the slow part, so remember results while the app is open.
+  var tuneCache = {};
+  var tuneCacheSize = 0;
+  function cachedTune(recipe, mealTarget, diet) {
+    var key = recipe.id + '|' + [mealTarget.calories, mealTarget.protein, mealTarget.carbs, mealTarget.fat].map(Math.round).join(',') +
+      '|' + JSON.stringify(diet || {}) + '|' + (recipe.ingNut || []).length;
+    if (!tuneCache[key]) {
+      if (tuneCacheSize > 2000) { tuneCache = {}; tuneCacheSize = 0; }
+      tuneCache[key] = Tuning.tune(recipe, mealTarget, diet);
+      tuneCacheSize++;
+    }
+    return tuneCache[key];
+  }
+
+  function toPct(err) { return Math.max(0, Math.round((1 - err) * 100)); }
+
   /**
    * Scores a recipe for one meal. Lower `score` is better.
-   * options: { budget, totalPortions } for favoring cheaper recipes.
+   * options:
+   *   budget, totalPortions  favor cheaper recipes
+   *   diet                   your diet settings (decides which add-ons are allowed)
+   *   tune: false            score the recipe exactly as written
    */
   function evaluate(recipe, mealTarget, options) {
     var opts = options || {};
-    var per = recipe.perServing || nutritionPerServing(recipe);
+    var base = recipe.perServing || nutritionPerServing(recipe);
+    var tuning = opts.tune === false ? null : cachedTune(recipe, mealTarget, opts.diet);
+    var per = tuning && tuning.tuned ? tuning.perServing : base;
     var factor = portionFactor(per, mealTarget);
     var scaled = scaleNutrition(per, factor);
 
-    var err = 0, weightSum = 0;
-    ['protein', 'carbs', 'fat'].forEach(function (k) {
-      var t = mealTarget[k];
-      if (!(t > 0)) return;
-      var rel = (scaled[k] - t) / t;
-      // Going over on protein is only half as bad as falling short.
-      var e = (k === 'protein' && rel > 0) ? rel * 0.5 : Math.abs(rel);
-      err += WEIGHTS[k] * e;
-      weightSum += WEIGHTS[k];
-    });
-    if (weightSum > 0) err = err / weightSum;
-    var matchPct = Math.max(0, Math.round((1 - err) * 100));
+    var err = Tuning.macroError(scaled, mealTarget);
+    var baseErr = Tuning.errorAtTarget(base, mealTarget);
+    var matchPct = toPct(err);
 
     var penalty = 0;
     if (factor > 2) penalty += (factor - 2) * 0.1;          // very big portions
     if (factor < 0.5) penalty += (0.5 - factor) * 0.2;      // very small portions
 
-    var costPerPortion = (recipe.pricePerServing || 0) / 100 * factor;   // dollars
+    // Add-on cost per recipe serving, in dollars.
+    var addonCost = 0;
+    if (tuning && tuning.addon) {
+      var a = Tuning.addonByKey(tuning.addon.key);
+      if (a) addonCost = tuning.addon.grams / 100 * a.price100;
+    }
+    var costPerPortion = ((recipe.pricePerServing || 0) / 100 + addonCost) * factor;   // dollars
     var perPortionBudget = null;
     if (opts.budget > 0 && opts.totalPortions > 0) {
       perPortionBudget = opts.budget / opts.totalPortions;
@@ -198,6 +233,8 @@
       recipe: recipe,
       factor: factor,
       scaled: scaled,
+      tuning: tuning && tuning.tuned ? tuning : null,
+      baseMatchPct: toPct(baseErr),
       costPerPortion: costPerPortion,
       overBudget: perPortionBudget != null && costPerPortion > perPortionBudget,
       matchPct: matchPct,
@@ -239,6 +276,63 @@
     return factor * portions / (recipe.servings || 1);
   }
 
+  /** How much of an add-on to buy, in friendly units: "1¼ lb", "2 cups", "1½ cans (15 oz, drained)". */
+  function formatAddonAmount(addon, grams) {
+    if (addon.show === 'weight') {
+      var oz = grams / 28.35;
+      if (oz < 15.5) return formatAmount(Math.max(oz, 0.5), 'oz') + ' oz';
+      return formatAmount(oz / 16, 'lb') + ' lb';
+    }
+    var n = grams / addon.gramsPerUnit;
+    var whole = ['can', 'block', 'avocado'].indexOf(addon.unit) !== -1;
+    if (whole) n = Math.max(0.5, Math.round(n * 2) / 2);
+    return formatAmount(n, addon.unit) + ' ' + unitLabel(addon.unit, n) + (addon.unitNote ? ' (' + addon.unitNote + ')' : '');
+  }
+
+  /**
+   * Everything needed to cook the batch: the evaluation, the recipe multiplier,
+   * each ingredient's final amount (with any tuning applied) and the add-on, if any.
+   */
+  function batchPlan(recipe, mealTarget, portions, options) {
+    var e = evaluate(recipe, mealTarget, options);
+    var mult = batchMultiplier(recipe, e.factor, portions);
+    var ingredients = (recipe.ingredients || []).map(function (ing) {
+      var m = Tuning.multFor(e.tuning, ing);
+      return {
+        id: ing.id, name: ing.name, aisle: ing.aisle, unit: ing.unit, original: ing.original,
+        amount: ing.amount * mult * m,
+        tuneMult: m,
+        change: Tuning.changeLabel(m, ing.name)
+      };
+    });
+    var addon = null;
+    if (e.tuning && e.tuning.addon) {
+      var a = Tuning.addonByKey(e.tuning.addon.key);
+      if (a) {
+        var grams = e.tuning.addon.grams * e.factor * portions;
+        addon = { key: a.key, name: a.name, kind: a.kind, grams: grams, qty: formatAddonAmount(a, grams), how: a.how,
+          gramsPerPortion: e.tuning.addon.grams * e.factor };
+      }
+    }
+    return { evaluation: e, multiplier: mult, ingredients: ingredients, addon: addon };
+  }
+
+  /** Short summary of what tuning changed, for recipe cards: "+40% chicken breast, −50% olive oil, + rice". */
+  function tuningSummary(recipe, tuning) {
+    if (!tuning) return '';
+    var bits = Tuning.parts(recipe)
+      .filter(function (p) { return tuning.mults[p.key] != null && Math.abs(tuning.mults[p.key] - 1) >= 0.025; })
+      .map(function (p) {
+        var pct = Math.round((tuning.mults[p.key] - 1) * 100);
+        return (pct > 0 ? '+' : '−') + Math.abs(pct) + '% ' + p.name;
+      });
+    if (tuning.addon) {
+      var a = Tuning.addonByKey(tuning.addon.key);
+      if (a) bits.push('add ' + a.name);
+    }
+    return bits.join(', ');
+  }
+
   // ---------- formatting ----------
   var FRACTIONS = [[0, ''], [1 / 8, '⅛'], [1 / 4, '¼'], [1 / 3, '⅓'], [1 / 2, '½'], [2 / 3, '⅔'], [3 / 4, '¾'], [1, '']];
   var METRIC_WEIGHT = /^(g|gram|grams|ml|milliliter|milliliters)$/i;
@@ -263,7 +357,7 @@
   // Units that need an "s" for more than one (cup -> cups) or none for one (cans -> can).
   var COUNT_UNITS = ['cup', 'can', 'clove', 'slice', 'piece', 'stalk', 'sprig', 'bunch', 'head', 'package', 'jar',
     'bottle', 'bag', 'box', 'container', 'fillet', 'breast', 'thigh', 'leaf', 'pinch', 'dash', 'handful', 'serving',
-    'large', 'medium', 'small', 'stick', 'strip', 'scoop', 'pint', 'quart', 'gallon', 'packet', 'block', 'ear', 'loaf', 'link', 'rib'];
+    'large', 'medium', 'small', 'avocado', 'block', 'stick', 'strip', 'scoop', 'pint', 'quart', 'gallon', 'packet', 'block', 'ear', 'loaf', 'link', 'rib'];
   var IRREGULAR = { bunch: 'bunches', box: 'boxes', leaf: 'leaves', pinch: 'pinches', dash: 'dashes', loaf: 'loaves',
     large: 'large', medium: 'medium', small: 'small' };
 
@@ -307,6 +401,10 @@
     rank: rank,
     optionsFor: optionsFor,
     batchMultiplier: batchMultiplier,
+    batchPlan: batchPlan,
+    formatAddonAmount: formatAddonAmount,
+    tuningSummary: tuningSummary,
+    ingredientNutrition: ingredientNutrition,
     formatAmount: formatAmount,
     unitLabel: unitLabel,
     formatMoney: formatMoney,

@@ -27,7 +27,7 @@
   function target() { return App.mealTargets().lunch; }   // lunch and dinner targets are identical
   function rankOptions() {
     var s = state();
-    return { budget: Number(s.budget) || 0, totalPortions: (s.servings.lunch || 0) + (s.servings.dinner || 0) };
+    return { budget: Number(s.budget) || 0, totalPortions: (s.servings.lunch || 0) + (s.servings.dinner || 0), diet: s.diet };
   }
   function currentKey() { return R.searchKey(state(), target()); }
   function searchIsCurrent() { var s = state().search; return !!(s && s.key === currentKey()); }
@@ -56,6 +56,13 @@
     }).join('') + '</ul>';
   }
 
+  function matchPill(e) {
+    var cls = e.matchPct >= 85 ? 'good' : e.matchPct >= 70 ? 'close' : 'off';
+    var before = e.tuning && e.baseMatchPct < e.matchPct ? '<s>' + e.baseMatchPct + '%</s> → ' : '';
+    return '<span class="match match-' + cls + '" aria-label="' + (before ? 'Was ' + e.baseMatchPct + '%, now ' : '') + e.matchPct + '% match">' +
+      before + e.matchPct + '% match</span>';
+  }
+
   function optionCard(e, meal) {
     var r = e.recipe;
     var img = safeUrl(r.image);
@@ -70,7 +77,8 @@
       (img ? '<img class="rx-img" src="' + esc(img) + '" alt="" loading="lazy">' : '<div class="rx-img rx-img-none"></div>') +
       '<div class="rx-card-body">' +
         '<div class="rx-title-row"><h3 class="rx-title">' + esc(r.title) + '</h3>' +
-        '<span class="match match-' + (e.matchPct >= 85 ? 'good' : e.matchPct >= 70 ? 'close' : 'off') + '">' + e.matchPct + '% match</span></div>' +
+        matchPill(e) + '</div>' +
+        (e.tuning ? '<p class="tuned-note"><b>Adjusted to fit:</b> ' + esc(R.tuningSummary(r, e.tuning)) + '</p>' : '') +
         checksList(e) +
         '<p class="rx-meta">' + meta.join('') + '</p>' +
         '<div class="rx-actions">' +
@@ -84,20 +92,31 @@
   function chosenView(meal) {
     var s = state();
     var r = s.plan[meal].recipe;
-    var e = R.evaluate(r, target(), rankOptions());
     var portions = s.servings[meal];
-    var mult = R.batchMultiplier(r, e.factor, portions);
+    var plan = R.batchPlan(r, target(), portions, rankOptions());
+    var e = plan.evaluation;
+    var mult = plan.multiplier;
     var img = safeUrl(r.image);
     var link = safeUrl(r.sourceUrl);
 
-    var ingredients = (r.ingredients || []).map(function (ing) {
-      var amt = R.formatAmount(ing.amount * mult, ing.unit);
-      var scaledAmt = ing.amount * mult;
-      var qty = (amt ? amt + (ing.unit ? ' ' + R.unitLabel(ing.unit, scaledAmt) : '') : '');
-      return '<li><span class="ing-qty">' + esc(qty || 'to taste') + '</span>' +
-        '<span class="ing-name">' + esc(ing.name) + (ing.original ? '<small>Recipe says: ' + esc(ing.original) + '</small>' : '') + '</span></li>';
+    var ingredients = plan.ingredients.map(function (ing) {
+      var amt = R.formatAmount(ing.amount, ing.unit);
+      var qty = (amt ? amt + (ing.unit ? ' ' + R.unitLabel(ing.unit, ing.amount) : '') : '');
+      return '<li' + (ing.change ? ' class="ing-changed"' : '') + '><span class="ing-qty">' + esc(qty || 'to taste') + '</span>' +
+        '<span class="ing-name">' + esc(ing.name) +
+          (ing.change ? '<span class="ing-tag">' + esc(ing.change) + '</span>' : '') +
+          (ing.original ? '<small>Recipe says: ' + esc(ing.original) + '</small>' : '') +
+        '</span></li>';
     }).join('');
+    if (plan.addon) {
+      ingredients += '<li class="ing-addon"><span class="ing-qty">' + esc(plan.addon.qty) + '</span>' +
+        '<span class="ing-name">' + esc(plan.addon.name) +
+          '<span class="ing-tag ing-tag-add">Add-on · more ' + (plan.addon.kind === 'carb' ? 'carbs' : plan.addon.kind) + '</span>' +
+          '<small>Not in the original recipe. ' + esc(plan.addon.how) + '</small>' +
+        '</span></li>';
+    }
     var steps = (r.steps || []).map(function (st) { return '<li>' + esc(st) + '</li>'; }).join('');
+    var tuned = !!e.tuning;
 
     return '<article class="chosen">' +
       (img ? '<img class="chosen-img" src="' + esc(img) + '" alt="">' : '') +
@@ -106,21 +125,24 @@
       (link ? '<a class="ext-link" href="' + esc(link) + '" target="_blank" rel="noopener">Open the original recipe ↗</a>' : '') +
 
       '<section class="sub"><h4>Each portion</h4>' +
-        '<p class="hint">One portion is ' + fmtServings(e.factor) + ' of the original recipe, sized to hit your calories.</p>' +
+        (tuned ? '<p class="tune-banner"><span>Macro match</span><span><s>' + e.baseMatchPct + '%</s> as written → <b>' + e.matchPct + '%</b> with the changes below</span></p>' : '') +
+        '<p class="hint">One portion is about ' + fmtServings(e.factor) + ' of the original recipe' + (tuned ? ', with some ingredients adjusted' : '') + ', sized to hit your calories.</p>' +
         checksList(e) + '</section>' +
 
       '<section class="sub batch-box">' +
         '<div><span class="batch-num">' + R.formatAmount(mult, '') + '×</span><span>the recipe</span></div>' +
-        '<p>Cook ' + (isNiceAmount(mult) ? '' : 'about ') + R.formatAmount(mult, '') + ' times the original recipe (it serves ' + r.servings + ') to make <b>' + portions + ' ' + meal + ' portions</b>. ' +
+        '<p>Make ' + (isNiceAmount(mult) ? '' : 'about ') + R.formatAmount(mult, '') + ' times the original recipe (it serves ' + r.servings + ') to get <b>' + portions + ' ' + meal + ' portions</b>' +
+        (tuned ? ', using the adjusted amounts below' : '') + '. ' +
         'Estimated cost: <b>' + R.formatMoney(e.costPerPortion * portions) + '</b> for the batch (' + R.formatMoney(e.costPerPortion) + ' a portion).</p>' +
       '</section>' +
 
       '<section class="sub"><h4>Ingredients for ' + portions + ' portions</h4>' +
+        (tuned ? '<p class="hint">Use these amounts. Highlighted ones were changed from the recipe to fit your macros.</p>' : '') +
         (ingredients ? '<ul class="ingredients">' + ingredients + '</ul>' : '<p class="hint">This recipe has no ingredient list. Check the original recipe.</p>') +
       '</section>' +
 
       '<section class="sub"><h4>Instructions</h4>' +
-        (steps ? '<p class="hint">These are the original steps. Where they mention amounts, use the scaled amounts above.</p><ol class="steps">' + steps + '</ol>'
+        (steps ? '<p class="hint">These are the original steps. Wherever they mention an amount, use the amounts above instead.</p><ol class="steps">' + steps + '</ol>'
                : '<p class="hint">No steps were included. Follow the original recipe.</p>') +
       '</section>' +
 

@@ -51,13 +51,13 @@ test('ranking is weighted toward protein', () => {
   // Same size miss (25%) but on different macros: missing protein should rank worse.
   const lowProtein = R.compactSearchResult(apiRecipe(1, 600, 33.75, 60 + 11.25 * 4 / 4, 20));   // protein -25%
   const lowFat = R.compactSearchResult(apiRecipe(2, 600, 45, 60, 15));                           // fat -25%
-  const ranked = R.rank([lowProtein, lowFat], target);
+  const ranked = R.rank([lowProtein, lowFat], target, { tune: false });
   assert.equal(ranked[0].recipe.id, 2);
 });
 
 test('extra protein is penalised less than missing protein', () => {
-  const over = R.evaluate(R.compactSearchResult(apiRecipe(1, 600, 54, 60, 20)), target);   // +20% protein
-  const under = R.evaluate(R.compactSearchResult(apiRecipe(2, 600, 36, 60, 20)), target);  // -20% protein
+  const over = R.evaluate(R.compactSearchResult(apiRecipe(1, 600, 54, 60, 20)), target, { tune: false });   // +20% protein
+  const under = R.evaluate(R.compactSearchResult(apiRecipe(2, 600, 36, 60, 20)), target, { tune: false });  // -20% protein
   assert.ok(over.score < under.score);
   assert.equal(over.checks.protein.status, 'good');
   assert.equal(under.checks.protein.status, 'close');

@@ -31,7 +31,7 @@
 
   var api = {
     searchRecipes: function (params, apiKey) { return get('/recipes/complexSearch', params, apiKey); },
-    recipeInfo: function (id, apiKey) { return get('/recipes/' + encodeURIComponent(id) + '/information', { includeNutrition: 'false' }, apiKey); },
+    recipeInfo: function (id, apiKey) { return get('/recipes/' + encodeURIComponent(id) + '/information', { includeNutrition: 'true' }, apiKey); },
     friendlyError: friendlyError
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

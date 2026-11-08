@@ -302,3 +302,22 @@ input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-i
 .ing-name small { display: block; color: var(--muted); font-size: .82rem; }
 .steps { margin: 0; padding-left: 1.4em; display: grid; gap: 12px; }
 .steps li::marker { font-weight: 800; color: var(--primary); }
+
+/* ---------- Macro tuning ---------- */
+.match s { opacity: .6; font-weight: 600; }
+.tuned-note { margin: 0; font-size: .9rem; color: var(--muted); }
+.tuned-note b { color: var(--primary); }
+.tune-banner {
+  margin: 0; display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--good) 12%, var(--surface));
+}
+.tune-banner span:first-child { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tune-banner s { color: var(--muted); }
+.tune-banner b { color: var(--good); font-size: 1.15rem; }
+.ing-tag {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: 2px;
+  font-size: .75rem; font-weight: 700; background: var(--warn-bg); color: var(--warn-ink); white-space: nowrap;
+}
+.ing-tag-add { background: var(--primary); color: var(--primary-ink); }
+.ingredients li.ing-changed .ing-qty { color: var(--carbs); }
+.ingredients li.ing-addon { background: var(--primary-soft); border-radius: 10px; padding-inline: 10px; border-bottom: 0; margin-top: 6px; }
