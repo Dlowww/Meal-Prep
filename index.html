@@ -6,6 +6,10 @@
   <title>Batch Prep</title>
   <meta name="description" content="Plan a week of batch-cooked lunches and dinners around your macros.">
   <meta name="theme-color" content="#1f5a43">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
@@ -22,6 +26,12 @@
   <main class="screens">
     <!-- ============ TARGETS ============ -->
     <section class="screen" id="screen-targets" data-screen="targets">
+
+      <div class="install-card" id="install-card" hidden>
+        <img src="icons/icon-192.png" alt="" width="48" height="48">
+        <div><b>Put Batch Prep on your home screen</b><span>Opens full screen, like an app, and works without internet.</span></div>
+        <button type="button" class="btn btn-primary" id="install-btn">Install</button>
+      </div>
 
       <section class="block" aria-labelledby="h-daily">
         <h2 class="block-title" id="h-daily">Daily targets</h2>

@@ -206,4 +206,23 @@
   }
 
   init();
+
+  // ---------- home-screen app ----------
+  // Keep a copy of the app on the phone so it opens without internet.
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+  // Chrome offers installing when the app qualifies; show our own Install button then.
+  var installEvent = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installEvent = e;
+    $('#install-card').hidden = false;
+  });
+  $('#install-btn').addEventListener('click', function () {
+    if (!installEvent) return;
+    installEvent.prompt();
+    installEvent.userChoice.then(function () { installEvent = null; $('#install-card').hidden = true; });
+  });
+  window.addEventListener('appinstalled', function () { $('#install-card').hidden = true; });
 })();
