@@ -107,3 +107,22 @@ test('cost per portion uses the built-in prices and follows tuning', () => {
   // with 50% more chicken
   near(R.servingCost(recipe, { mults: { 'id:1': 1.5 } }), 1.575 + 46.25 * 2.49 / 907, 0.01);
 });
+
+test('unknown items never crash, in every store section', () => {
+  for (const section of G.SECTIONS.map(s => s.key).concat(['nonsense'])) {
+    for (const q of [qty(300), qty(0, 500), qty(0, 0, { '': 2 }), qty(0, 0, { can: 1 }), qty(0, 0, { pinch: 1 }), qty()]) {
+      const c = P.checkoutCost(q, 'mystery ingredient xyz', section);
+      assert.ok(Number.isFinite(c.cost), section);
+    }
+  }
+  // And the whole list builds with odd data: missing names, units and aisles.
+  const list = G.build({ lunch: { ingredients: [
+    { name: 'mystery sauce', amount: 2, unit: 'jars', aisle: 'Condiments' },
+    { name: 'zzz', amount: 1, unit: 'serving', aisle: 'Gourmet' },
+    { name: '', amount: 3, unit: '', aisle: '' },
+    { name: 'thing', amount: null, unit: undefined, aisle: undefined },
+    { name: 'frozen mystery', amount: 12, unit: 'oz', aisle: 'Frozen' }
+  ] } });
+  assert.ok(Number.isFinite(list.total) && list.total > 0);
+  assert.ok(list.guessedCount >= 3);
+});

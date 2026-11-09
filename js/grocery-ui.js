@@ -94,7 +94,19 @@
       '<p class="hint">' + notes.join(' ') + '</p></div>';
   }
 
+  // If anything goes wrong, show a message instead of a blank screen.
   function render() {
+    try {
+      renderList();
+    } catch (err) {
+      screen.innerHTML = '<div class="rx-head"><h2 class="block-title">Grocery list</h2></div>' +
+        '<p class="notice" role="alert">Something went wrong building your list. Please tell Claude this message: ' +
+        esc(err && err.message ? err.message : String(err)) + '</p>';
+      if (window.console) console.error(err);
+    }
+  }
+
+  function renderList() {
     var s = state();
     var g = groceryState();
     var sig = planSignature();

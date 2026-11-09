@@ -274,7 +274,7 @@
 
   /** "8 oz", "32 fl oz", "dozen" — the size of one package, for display. */
   function packLabel(entry) {
-    if (entry.m.test('egg')) return 'dozen';
+    if (entry.m && entry.m.test('egg')) return 'dozen';
     if (entry.ml) {
       var floz = entry.packG / FLOZ;
       return floz >= 60 ? (Math.round(floz / 32 * 4) / 4) + ' qt' : Math.round(floz) + ' fl oz';
