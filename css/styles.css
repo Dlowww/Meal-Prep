@@ -376,3 +376,22 @@ input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-i
 .g-price { display: grid; justify-items: end; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; padding-top: 2px; }
 .g-price small { font-weight: 500; font-size: .75rem; color: var(--muted); }
 .g-item.is-checked .g-price { opacity: .45; }
+
+/* ======================= Favorites ======================= */
+.heart {
+  flex: none; width: var(--tap); height: var(--tap); margin: -8px -8px 0 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer;
+}
+.heart svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.heart.is-on { color: var(--bad); }
+.heart.is-on svg { fill: currentColor; }
+.heart:disabled { opacity: .5; }
+.heart:active svg { transform: scale(.88); }
+.chosen-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-top: -8px; }
+.chosen-title-row .chosen-title { margin: 0; }
+.fav-img { aspect-ratio: 16 / 7; }
+.fav-status { margin: -6px 0 0; font-size: .85rem; font-weight: 700; color: var(--primary); }
+.fav-macros { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: .92rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fav-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fav-actions .btn { padding: 0 10px; }
+.heart-inline { color: var(--bad); }

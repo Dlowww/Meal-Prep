@@ -26,7 +26,9 @@
       search: null,
       // Grocery ticks, kept for the current pair of recipes.
       grocery: { checked: {}, sig: '' },
-      groceryPantryOpen: false
+      groceryPantryOpen: false,
+      // Saved recipes: [{ recipe, savedAt }], newest first.
+      favorites: []
     };
   }
 

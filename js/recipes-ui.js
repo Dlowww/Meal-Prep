@@ -13,7 +13,7 @@
   var MEAL_LABEL = { lunch: 'lunch', dinner: 'dinner' };
 
   // Things that only matter while the app is open.
-  var ui = { meal: 'lunch', changing: { lunch: false, dinner: false }, loading: false, choosing: null, error: '' };
+  var ui = { meal: 'lunch', changing: { lunch: false, dinner: false }, loading: false, choosing: null, saving: null, error: '' };
 
   // ---------- helpers ----------
   function esc(s) {
@@ -76,7 +76,7 @@
     return '<article class="rx-card">' +
       (img ? '<img class="rx-img" src="' + esc(img) + '" alt="" loading="lazy">' : '<div class="rx-img rx-img-none"></div>') +
       '<div class="rx-card-body">' +
-        '<div class="rx-title-row"><h3 class="rx-title">' + esc(r.title) + '</h3>' +
+        '<div class="rx-title-row"><h3 class="rx-title">' + esc(r.title) + '</h3>' + window.Favorites.heartButton(r.id, ui.saving === r.id) +
         matchPill(e) + '</div>' +
         (e.tuning ? '<p class="tuned-note"><b>Adjusted to fit:</b> ' + esc(R.tuningSummary(r, e.tuning)) + '</p>' : '') +
         checksList(e) +
@@ -121,7 +121,7 @@
     return '<article class="chosen">' +
       (img ? '<img class="chosen-img" src="' + esc(img) + '" alt="">' : '') +
       '<p class="eyebrow">This week\'s ' + meal + '</p>' +
-      '<h3 class="chosen-title">' + esc(r.title) + '</h3>' +
+      '<div class="chosen-title-row"><h3 class="chosen-title">' + esc(r.title) + '</h3>' + window.Favorites.heartButton(r.id) + '</div>' +
       (link ? '<a class="ext-link" href="' + esc(link) + '" target="_blank" rel="noopener">Open the original recipe ↗</a>' : '') +
 
       '<section class="sub"><h4>Each portion</h4>' +
@@ -276,11 +276,33 @@
     }).then(function () { ui.choosing = null; render(); });
   }
 
+  /**
+   * Heart tapped. A picked recipe is already complete, so it's saved straight away;
+   * a search result needs its full ingredients and steps first (1 Spoonacular point).
+   */
+  function toggleFavorite(id) {
+    var F = window.Favorites;
+    if (F.isFavorite(id)) { F.remove(id); render(); return; }
+    var s = state();
+    var picked = ['lunch', 'dinner'].map(function (m) { return s.plan[m] && s.plan[m].recipe; })
+      .filter(function (r) { return r && r.id === id; })[0];
+    if (picked) { F.add(picked); render(); return; }
+    var fromSearch = s.search && s.search.results.filter(function (r) { return r.id === id; })[0];
+    if (!fromSearch) return;
+    ui.saving = id; ui.error = ''; render();
+    API.recipeInfo(id, s.apiKey).then(function (info) {
+      F.add(R.compactRecipeDetail(info, fromSearch));
+    }).catch(function (err) {
+      ui.error = "Couldn't save that favorite. " + err.message;
+    }).then(function () { ui.saving = null; render(); });
+  }
+
   screen.addEventListener('click', function (e) {
     var el = e.target.closest('button');
     if (!el) return;
     if (el.dataset.meal) { ui.meal = el.dataset.meal; ui.error = ''; render(); return; }
     if (el.dataset.choose) { choose(Number(el.dataset.choose)); return; }
+    if (el.dataset.fav) { toggleFavorite(Number(el.dataset.fav)); return; }
     switch (el.dataset.action) {
       case 'search': search(); break;
       case 'more': more(); break;
@@ -299,5 +321,12 @@
     return R.batchPlan(p.recipe, target(), state().servings[meal], rankOptions());
   }
 
-  window.RecipesUI = { render: render, planFor: planFor };
+  /** Open the Recipes tab on a given meal (used after picking a favorite). */
+  function showMeal(meal) {
+    ui.meal = meal;
+    ui.changing[meal] = false;
+    App.showTab('recipes');
+  }
+
+  window.RecipesUI = { render: render, planFor: planFor, showMeal: showMeal };
 })();
