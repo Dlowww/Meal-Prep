@@ -301,17 +301,21 @@
     return factor * portions / (recipe.servings || 1);
   }
 
-  /** How much of an add-on to buy, in friendly units: "1¼ lb", "2 cups", "1½ cans (15 oz, drained)". */
-  function formatAddonAmount(addon, grams) {
+  /** An add-on amount as a kitchen quantity: { amount, unit }, e.g. { 1.67, 'lb' } or { 2, 'cup' }. */
+  function addonAmount(addon, grams) {
     if (addon.show === 'weight') {
       var oz = grams / 28.35;
-      if (oz < 15.5) return formatAmount(Math.max(oz, 0.5), 'oz') + ' oz';
-      return formatAmount(oz / 16, 'lb') + ' lb';
+      return oz < 15.5 ? { amount: Math.max(oz, 0.5), unit: 'oz' } : { amount: oz / 16, unit: 'lb' };
     }
     var n = grams / addon.gramsPerUnit;
-    var whole = ['can', 'block', 'avocado'].indexOf(addon.unit) !== -1;
-    if (whole) n = Math.max(0.5, Math.round(n * 2) / 2);
-    return formatAmount(n, addon.unit) + ' ' + unitLabel(addon.unit, n) + (addon.unitNote ? ' (' + addon.unitNote + ')' : '');
+    if (['can', 'block', 'avocado'].indexOf(addon.unit) !== -1) n = Math.max(0.5, Math.round(n * 2) / 2);
+    return { amount: n, unit: addon.unit };
+  }
+
+  /** How much of an add-on to use, in friendly units: "1¼ lb", "2 cups", "1½ cans (15 oz, drained)". */
+  function formatAddonAmount(addon, grams) {
+    var q = addonAmount(addon, grams);
+    return formatAmount(q.amount, q.unit) + ' ' + unitLabel(q.unit, q.amount) + (addon.unitNote ? ' (' + addon.unitNote + ')' : '');
   }
 
   /**
@@ -335,8 +339,9 @@
       var a = Tuning.addonByKey(e.tuning.addon.key);
       if (a) {
         var grams = e.tuning.addon.grams * e.factor * portions;
-        addon = { key: a.key, name: a.name, kind: a.kind, grams: grams, qty: formatAddonAmount(a, grams), how: a.how,
-          gramsPerPortion: e.tuning.addon.grams * e.factor };
+        var q = addonAmount(a, grams);
+        addon = { key: a.key, name: a.name, kind: a.kind, grams: grams, amount: q.amount, unit: q.unit,
+          qty: formatAddonAmount(a, grams), how: a.how, gramsPerPortion: e.tuning.addon.grams * e.factor };
       }
     }
     return { evaluation: e, multiplier: mult, ingredients: ingredients, addon: addon };

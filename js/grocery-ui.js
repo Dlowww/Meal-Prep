@@ -33,28 +33,32 @@
 
   function priceHtml(it) {
     if (!(it.cost > 0)) return '';
-    var pack = it.packs ? (it.packs > 1 ? it.packs + ' × ' : '') + it.packLabel : '';
-    return '<span class="g-price">' + (it.priceKnown ? '' : '~') + R.formatMoney(it.cost) +
-      (pack ? '<small>' + esc(pack) + '</small>' : '') + '</span>';
+    return '<span class="g-price">' + (it.priceKnown ? '' : '~') + R.formatMoney(it.cost) + '</span>';
   }
 
+  /**
+   * One item:
+   *   Buy 1 bag (2 lb) · white rice          $2.49
+   *   You'll use 1½ cups
+   *   Lunch 1 cup · Dinner ½ cup   (or a single Lunch / Dinner tag)
+   * Pantry staples skip the Buy line and lead with the amount you'll use.
+   */
   function itemHtml(it, checked) {
     var split = '';
     if (it.meals.length === 2) {
-      split = '<span class="g-split">Lunch ' + esc(it.lunch.text) + ' · Dinner ' + esc(it.dinner.text) + '</span>';
+      split = '<span class="g-split">Lunch ' + esc(it.useLunch) + ' · Dinner ' + esc(it.useDinner) + '</span>';
     } else if (it.meals.length === 1) {
-      split = '<span class="g-split"><span class="g-tag g-tag-' + it.meals[0] + '">' + (it.meals[0] === 'lunch' ? 'Lunch' : 'Dinner') + '</span></span>';
+      split = '<span class="g-split"><span class="g-tag g-tag-' + it.meals[0] + '">' + (it.meals[0] === 'lunch' ? 'Lunch only' : 'Dinner only') + '</span></span>';
     }
+    var main = it.buy
+      ? '<span class="g-line"><b class="g-qty">' + esc(it.buy) + '</b> · ' + esc(it.name) + '</span>' +
+        '<span class="g-use">You\'ll use <b>' + esc(it.use) + '</b></span>'
+      : '<span class="g-line"><b class="g-qty">' + esc(it.use) + '</b> ' + esc(it.name) + '</span>';
     return '<li class="g-item' + (checked ? ' is-checked' : '') + '">' +
       '<label class="g-row">' +
         '<input type="checkbox" class="g-check" data-key="' + esc(it.key) + '"' + (checked ? ' checked' : '') + '>' +
         '<span class="g-box" aria-hidden="true"></span>' +
-        '<span class="g-text">' +
-          '<span class="g-line"><b class="g-qty">' + esc(it.total.text) + '</b> ' + esc(it.name) +
-            (it.addon ? ' <span class="g-tag g-tag-addon">incl. add-on</span>' : '') + '</span>' +
-          (it.total.note ? '<span class="g-note">' + esc(it.total.note) + '</span>' : '') +
-          split +
-        '</span>' +
+        '<span class="g-text">' + main + split + '</span>' +
         (it.section === 'pantry' ? '' : priceHtml(it)) +
       '</label></li>';
   }
@@ -69,7 +73,7 @@
     if (sec.key === 'pantry') {
       return '<details class="g-section g-pantry"' + (state().groceryPantryOpen ? ' open' : '') + '>' +
         '<summary><span class="g-sec-title">Pantry staples</span><span class="g-sec-count">' + left + ' to check</span></summary>' +
-        '<p class="hint">You probably have these. Check you have enough.</p>' + list + '</details>';
+        '<p class="hint">You probably have these. Check you have at least this much.</p>' + list + '</details>';
     }
     return '<section class="g-section"><h3 class="g-sec-head"><span class="g-sec-title">' + esc(sec.label) + '</span>' +
       '<span class="g-sec-count">' + (left ? left + ' left' : 'done ✓') + '</span></h3>' + list + '</section>';

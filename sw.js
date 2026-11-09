@@ -6,7 +6,7 @@
  *  - Recipe photos and fonts: saved copy first (they never change).
  *  - Spoonacular API: always live, never stored here (your key stays out of the cache).
  */
-var VERSION = 'batch-prep-v1';
+var VERSION = 'batch-prep-v2';
 var APP_CACHE = VERSION + '-app';
 var MEDIA_CACHE = 'batch-prep-media';
 var APP_FILES = [

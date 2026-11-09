@@ -266,10 +266,37 @@
     var known = !!entry;
     if (!entry) entry = FALLBACK[section] || FALLBACK.any;
     var r = gramsOf(q, name, entry);
-    if (!(r.grams > 0)) return { cost: 0, known: known };
-    if (entry.lb) return { cost: r.grams / LB * entry.lb, known: known && !r.guessed };
+    if (!(r.grams > 0)) return { cost: 0, known: known, grams: 0 };
+    if (entry.lb) return { cost: r.grams / LB * entry.lb, known: known && !r.guessed, byWeight: true, grams: r.grams };
     var packs = Math.max(1, Math.ceil(r.grams / entry.packG - 0.08));   // ignore a sliver over (8% of a pack)
-    return { cost: packs * entry.price, packs: packs, packLabel: packLabel(entry), known: known && !r.guessed };
+    return { cost: packs * entry.price, packs: packs, packLabel: packLabel(entry), noun: known ? nounFor(name) : 'pack',
+      known: known && !r.guessed, grams: r.grams };
+  }
+
+  // What one package is called, from what it holds: "bag", "can", "jar"...
+  // 'each' means the item itself is the unit (2 bell peppers, 3 lemons).
+  var NOUNS = [
+    [/^egg$|^eggs$|large egg/, 'dozen'],
+    [/broth|stock|bouillon|almond milk|oat milk|soy milk|^milk|heavy cream|whipping cream|half and half|egg white|orange juice/, 'carton'],
+    [/lemon juice|lime juice/, 'each'],
+    [/black bean|kidney bean|pinto|cannellini|white bean|navy bean|great northern|chickpea|garbanzo|refried|bean|tomato sauce|tomato paste|crushed tomato|diced tomato|stewed tomato|whole tomato|canned tomato|tomatoes with|coconut milk|coconut cream|canned tuna|tuna in water|chunk light|enchilada|corn$|corn kernel|sweet corn/, 'can'],
+    [/marinara|pasta sauce|spaghetti sauce|pizza sauce|salsa|pesto|curry paste|mayonnaise|mayo|mustard|peanut butter|almond butter|tahini|honey/, 'jar'],
+    [/oil|vinegar|soy sauce|tamari|fish sauce|worcestershire|bbq|barbecue|teriyaki|hoisin|stir fry|oyster sauce|sriracha|hot sauce|chili sauce|chili garlic|ketchup|dressing|wine|maple|vanilla/, 'bottle'],
+    [/spaghetti|penne|macaroni|linguine|fettuccine|rigatoni|fusilli|rotini|orzo|farfalle|bow tie|elbow|ziti|lasagna|angel hair|pasta|noodle|ramen|udon|soba|lo mein|couscous|baking soda|baking powder|cornstarch|corn starch/, 'box'],
+    [/spice|powder|paprika|cumin|oregano|thyme|rosemary|cinnamon|nutmeg|turmeric|seasoning|cayenne|pepper flake|crushed red pepper|black pepper|^pepper$|bay leaf|dried basil|dried parsley|ground clove|allspice|coriander|cardamom/, 'jar'],
+    [/tofu|tempeh|cream cheese/, 'block'],
+    [/yogurt|sour cream|cottage cheese|ricotta|hummus/, 'tub'],
+    [/garlic|cauliflower/, 'head'],
+    [/cilantro|parsley|dill|basil|mint|green onion|scallion|spring onion|kale|collard|chard|celery/, 'bunch'],
+    [/bread|baguette/, 'loaf'],
+    [/bell pepper|red pepper|green pepper|yellow pepper|orange pepper|jalapeno|serrano|chile pepper|chili pepper|avocado|cucumber|lemon|lime|mango|pineapple|leek|eggplant/, 'each'],
+    [/mushroom|cherry tomato|grape tomato|blueberr|raspberr|blackberr|strawberr|snap pea|snow pea|mixed green|spring mix|salad mix/, 'container'],
+    [/cheese|parmesan|parmigiano|pecorino|romano|feta|mozzarella|cheddar|bacon|pancetta|prosciutto|tortilla|pita|naan|flatbread|bun|roll|hoagie|butter|romaine|lettuce|rotisserie|cooked chicken|shredded chicken|yeast/, 'pack']
+  ];
+  function nounFor(name) {
+    var n = U.normName(name);
+    for (var i = 0; i < NOUNS.length; i++) if (NOUNS[i][0].test(n)) return NOUNS[i][1];
+    return 'bag';
   }
 
   /** "8 oz", "32 fl oz", "dozen" — the size of one package, for display. */
@@ -290,7 +317,7 @@
     return r.grams * perGram(entry);
   }
 
-  var api = { PRICES: P, lookup: lookup, gramsOf: gramsOf, checkoutCost: checkoutCost, usedCost: usedCost, packLabel: packLabel };
+  var api = { PRICES: P, lookup: lookup, gramsOf: gramsOf, checkoutCost: checkoutCost, usedCost: usedCost, packLabel: packLabel, nounFor: nounFor };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Prices = api;
 })(this);

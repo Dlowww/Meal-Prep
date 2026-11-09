@@ -13,7 +13,7 @@
   var MEAL_LABEL = { lunch: 'lunch', dinner: 'dinner' };
 
   // Things that only matter while the app is open.
-  var ui = { meal: 'lunch', changing: { lunch: false, dinner: false }, loading: false, choosing: null, saving: null, error: '' };
+  var ui = { meal: 'lunch', changing: { lunch: false, dinner: false }, showChanges: { lunch: false, dinner: false }, loading: false, choosing: null, saving: null, error: '' };
 
   // ---------- helpers ----------
   function esc(s) {
@@ -36,8 +36,6 @@
   function fmtTarget(t) {
     return Math.round(t.calories) + ' cal · ' + Math.round(t.protein) + 'P · ' + Math.round(t.carbs) + 'C · ' + Math.round(t.fat) + 'F';
   }
-  // True when the number is (close to) a whole number or a simple fraction like ½ or ⅓.
-  function isNiceAmount(n) { return [4, 3].some(function (d) { return Math.abs(n * d - Math.round(n * d)) < 0.03; }); }
   function fmtServings(f) {
     var a = R.formatAmount(f, '');
     return a + ' recipe serving' + (f > 1.05 ? 's' : '');
@@ -95,28 +93,33 @@
     var portions = s.servings[meal];
     var plan = R.batchPlan(r, target(), portions, rankOptions());
     var e = plan.evaluation;
-    var mult = plan.multiplier;
     var img = safeUrl(r.image);
     var link = safeUrl(r.sourceUrl);
+    var tuned = !!e.tuning;
+    var details = !!ui.showChanges[meal];
 
+    // Each line is just the batch total. "What changed" details appear only when asked for.
     var ingredients = plan.ingredients.map(function (ing) {
       var amt = R.formatAmount(ing.amount, ing.unit);
-      var qty = (amt ? amt + (ing.unit ? ' ' + R.unitLabel(ing.unit, ing.amount) : '') : '');
-      return '<li' + (ing.change ? ' class="ing-changed"' : '') + '><span class="ing-qty">' + esc(qty || 'to taste') + '</span>' +
-        '<span class="ing-name">' + esc(ing.name) +
-          (ing.change ? '<span class="ing-tag">' + esc(ing.change) + '</span>' : '') +
-          (ing.original ? '<small>Recipe says: ' + esc(ing.original) + '</small>' : '') +
-        '</span></li>';
+      var qty = amt ? amt + (ing.unit ? ' ' + R.unitLabel(ing.unit, ing.amount) : '') : 'to taste';
+      var more = '';
+      if (details) {
+        var bits = [];
+        if (ing.original) bits.push('Original recipe: ' + ing.original);
+        if (ing.change) bits.push(ing.change.replace(' · ', ' for '));
+        if (bits.length) more = '<small class="ing-detail' + (ing.change ? ' is-changed' : '') + '">' + esc(bits.join(' · ')) + '</small>';
+      }
+      return '<li><span class="ing-qty">' + esc(qty) + '</span><span class="ing-name">' + esc(ing.name) + more + '</span></li>';
     }).join('');
     if (plan.addon) {
-      ingredients += '<li class="ing-addon"><span class="ing-qty">' + esc(plan.addon.qty) + '</span>' +
-        '<span class="ing-name">' + esc(plan.addon.name) +
-          '<span class="ing-tag ing-tag-add">Add-on · more ' + (plan.addon.kind === 'carb' ? 'carbs' : plan.addon.kind) + '</span>' +
-          '<small>Not in the original recipe. ' + esc(plan.addon.how) + '</small>' +
+      ingredients += '<li><span class="ing-qty">' + esc(plan.addon.qty) + '</span>' +
+        '<span class="ing-name">' + esc(plan.addon.name) + ' <span class="ing-extra">extra</span>' +
+          (details ? '<small class="ing-detail is-changed">Not in the original recipe; added for more ' +
+            (plan.addon.kind === 'carb' ? 'carbs' : plan.addon.kind) + '. ' + esc(plan.addon.how) + '</small>' : '') +
         '</span></li>';
     }
+    var hasDetails = tuned || plan.ingredients.some(function (i) { return i.original; });
     var steps = (r.steps || []).map(function (st) { return '<li>' + esc(st) + '</li>'; }).join('');
-    var tuned = !!e.tuning;
 
     return '<article class="chosen">' +
       (img ? '<img class="chosen-img" src="' + esc(img) + '" alt="">' : '') +
@@ -124,27 +127,25 @@
       '<div class="chosen-title-row"><h3 class="chosen-title">' + esc(r.title) + '</h3>' + window.Favorites.heartButton(r.id) + '</div>' +
       (link ? '<a class="ext-link" href="' + esc(link) + '" target="_blank" rel="noopener">Open the original recipe ↗</a>' : '') +
 
-      '<section class="sub"><h4>Each portion</h4>' +
-        (tuned ? '<p class="tune-banner"><span>Macro match</span><span><s>' + e.baseMatchPct + '%</s> as written → <b>' + e.matchPct + '%</b> with the changes below</span></p>' : '') +
-        '<p class="hint">One portion is about ' + fmtServings(e.factor) + ' of the original recipe' + (tuned ? ', with some ingredients adjusted' : '') + ', sized to hit your calories.</p>' +
-        checksList(e) + '</section>' +
-
-      '<section class="sub batch-box">' +
-        '<div><span class="batch-num">' + R.formatAmount(mult, '') + '×</span><span>the recipe</span></div>' +
-        '<p>Make ' + (isNiceAmount(mult) ? '' : 'about ') + R.formatAmount(mult, '') + ' times the original recipe (it serves ' + r.servings + ') to get <b>' + portions + ' ' + meal + ' portions</b>' +
-        (tuned ? ', using the adjusted amounts below' : '') + '. ' +
-        'Estimated cost: <b>' + R.formatMoney(e.costPerPortion * portions) + '</b> for the batch (' + R.formatMoney(e.costPerPortion) + ' a portion).</p>' +
-      '</section>' +
+      '<p class="cook-summary">Cook these amounts to make <b>' + portions + ' ' + meal + ' portions</b>, then divide into ' + portions +
+        ' equal containers. About <b>' + R.formatMoney(e.costPerPortion * portions) + '</b> worth of food.</p>' +
 
       '<section class="sub"><h4>Ingredients for ' + portions + ' portions</h4>' +
-        (tuned ? '<p class="hint">Use these amounts. Highlighted ones were changed from the recipe to fit your macros.</p>' : '') +
         (ingredients ? '<ul class="ingredients">' + ingredients + '</ul>' : '<p class="hint">This recipe has no ingredient list. Check the original recipe.</p>') +
+        (hasDetails ? '<button type="button" class="btn btn-link btn-wide" data-action="toggle-changes" aria-expanded="' + details + '">' +
+          (details ? 'Hide what changed from the original' : 'Show what changed from the original') + '</button>' : '') +
+        (details && tuned ? '<p class="hint">Adjusted to fit your macros: <s>' + e.baseMatchPct + '%</s> match as written, <b>' + e.matchPct + '%</b> with these amounts. ' +
+          'The original recipe serves ' + r.servings + '.</p>' : '') +
       '</section>' +
 
       '<section class="sub"><h4>Instructions</h4>' +
-        (steps ? '<p class="hint">These are the original steps. Wherever they mention an amount, use the amounts above instead.</p><ol class="steps">' + steps + '</ol>'
+        (steps ? '<p class="hint">These are the original steps. Wherever they mention an amount, use the amounts above.' +
+          (plan.addon ? ' Cook the extra ' + esc(plan.addon.name) + ' as well: ' + esc(plan.addon.how.charAt(0).toLowerCase() + plan.addon.how.slice(1)) : '') +
+          '</p><ol class="steps">' + steps + '</ol>'
                : '<p class="hint">No steps were included. Follow the original recipe.</p>') +
       '</section>' +
+
+      '<section class="sub"><h4>Each portion</h4>' + checksList(e) + '</section>' +
 
       '<button type="button" class="btn btn-secondary btn-wide" data-action="change">Choose a different ' + meal + '</button>' +
       '</article>';
@@ -308,6 +309,7 @@
       case 'more': more(); break;
       case 'change': ui.changing[ui.meal] = true; render(); window.scrollTo(0, 0); break;
       case 'cancel-change': ui.changing[ui.meal] = false; render(); break;
+      case 'toggle-changes': ui.showChanges[ui.meal] = !ui.showChanges[ui.meal]; render(); break;
       case 'go-targets': App.showTab('targets'); setTimeout(function () { var k = document.getElementById('in-apikey'); if (k) k.focus(); }, 50); break;
     }
   });

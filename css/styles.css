@@ -406,3 +406,9 @@ input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-i
 .install-card span { font-size: .9rem; color: var(--muted); }
 .install-card .btn { grid-column: 1 / -1; }
 @media (display-mode: standalone) { .install-card { display: none !important; } }
+.g-use { font-size: .92rem; color: var(--muted); }
+.g-use b { color: var(--ink); font-weight: 700; }
+.cook-summary { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--primary-soft); font-size: .98rem; }
+.ing-extra { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; line-height: 1.6;
+  background: var(--primary); color: var(--primary-ink); vertical-align: 2px; }
+.ing-detail.is-changed { color: var(--carbs); }

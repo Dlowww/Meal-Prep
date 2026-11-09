@@ -132,6 +132,67 @@
     return { text: parts.join(' + '), note: note };
   }
 
+  // ---------- "You'll use" and "Buy" lines ----------
+  /**
+   * Adds up recipe amounts the same way the recipe page shows them, so the
+   * numbers match: if every line uses the same unit, keep that unit
+   * ("1 cup" + "½ cup" = "1½ cups"); if units differ, convert to the handiest one.
+   */
+  function formatUse(lines) {
+    var real = (lines || []).filter(function (l) { return Number(l.amount) > 0; });
+    if (!real.length) return lines && lines.length ? 'as needed' : '';
+    var groups = {}, order = [];
+    real.forEach(function (l) {
+      var u = parseUnit(l.unit);
+      var k = u.dim === 'count' ? 'count:' + u.unit : u.dim;
+      if (!groups[k]) { groups[k] = { dim: u.dim, lines: [] }; order.push(k); }
+      groups[k].lines.push({ amount: Number(l.amount), unit: String(l.unit || '').trim(), parsed: u });
+    });
+    return order.map(function (k) {
+      var g = groups[k];
+      var first = g.lines[0];
+      var sameUnit = g.lines.every(function (l) { return l.unit.toLowerCase() === first.unit.toLowerCase(); });
+      if (sameUnit || g.dim === 'count') {
+        var sum = g.lines.reduce(function (t, l) { return t + l.amount; }, 0);
+        var amt = R.formatAmount(sum, first.unit);
+        return first.unit ? amt + ' ' + R.unitLabel(first.unit, sum) : amt;
+      }
+      var base = g.lines.reduce(function (t, l) { return t + l.amount * l.parsed.factor; }, 0);
+      return g.dim === 'mass' ? formatWeight(base, false) : formatVolume(base, false);
+    }).join(' + ');
+  }
+
+  function plural(noun, n) {
+    if (n <= 1) return noun;
+    return { box: 'boxes', bunch: 'bunches', loaf: 'loaves', dozen: 'dozen' }[noun] || noun + 's';
+  }
+
+  /** What to put in the cart: "Buy 1 bag (2 lb)", "Buy 2 cans (15 oz each)", "Buy 3¼ lb", "Buy 3". */
+  var PACK_WORDS = ['can', 'jar', 'package', 'bag', 'box', 'bottle', 'carton', 'container', 'packet', 'tub', 'pouch', 'block', 'loaf', 'bunch', 'head'];
+
+  function buyText(price, q, norm, preferOz) {
+    // If the recipes already count it in packages ("2 cans", "1 jar"), say it the same way.
+    var countUnits = Object.keys(q.counts);
+    if (!(q.mass > 0) && !(q.volume > 0) && countUnits.length === 1 && PACK_WORDS.indexOf(countUnits[0]) !== -1) {
+      var n = Math.max(1, Math.ceil(q.counts[countUnits[0]] - 0.1));
+      return 'Buy ' + n + ' ' + plural(countUnits[0], n);
+    }
+    if (price.packs) {
+      if (price.noun === 'each') return 'Buy ' + price.packs;
+      if (price.noun === 'dozen') return 'Buy ' + price.packs + ' dozen';
+      var showSize = price.packLabel && ['head', 'bunch', 'loaf'].indexOf(price.noun) === -1;
+      return 'Buy ' + price.packs + ' ' + plural(price.noun, price.packs) +
+        (showSize ? ' (' + price.packLabel + (price.packs > 1 ? ' each' : '') + ')' : '');
+    }
+    if (price.byWeight) {
+      var onlyCounts = !(q.mass > 0) && !(q.volume > 0) && Object.keys(q.counts).length;
+      if (onlyCounts) return 'Buy ' + formatCounts(q.counts, true).join(' + ');
+      return 'Buy ' + formatWeight(price.grams, true, preferOz);
+    }
+    var d = describe(q, norm, { shopping: true, preferOz: preferOz });
+    return d.text && d.text !== 'as needed' ? 'Buy ' + d.text : '';
+  }
+
   // ---------- building the list ----------
   /**
    * plans: { lunch: batchPlan | null, dinner: batchPlan | null }
@@ -147,7 +208,7 @@
       var g = (id && byId[id]) || byName[norm];
       if (!g) {
         g = { key: id ? 'id:' + id : 'name:' + norm, name: name, norm: norm, aisle: aisle, id: id || null,
-          total: emptyQty(), lunch: emptyQty(), dinner: emptyQty(), meals: {} };
+          total: emptyQty(), lunch: emptyQty(), dinner: emptyQty(), meals: {}, uses: { lunch: [], dinner: [] } };
         groups.push(g);
       }
       if (id && !byId[id]) byId[id] = g;
@@ -164,6 +225,7 @@
         var g = groupFor(ing.id, ing.name, ing.aisle);
         addLine(g.total, ing.amount, ing.unit);
         addLine(g[meal], ing.amount, ing.unit);
+        g.uses[meal].push({ amount: ing.amount, unit: ing.unit });
         g.meals[meal] = true;
       });
       if (plan.addon) {
@@ -171,6 +233,7 @@
         var g2 = groupFor(null, a.name, ADDON_AISLE[a.key] || '');
         g2.total.mass += a.grams;
         g2[meal].mass += a.grams;
+        g2.uses[meal].push(a.amount != null ? { amount: a.amount, unit: a.unit } : { amount: a.grams, unit: 'g' });
         g2.meals[meal] = true;
         g2.hasAddon = true;
       }
@@ -196,6 +259,10 @@
         packs: price.packs || 0,
         packLabel: price.packLabel || '',
         priceKnown: price.known,
+        buy: pantry ? '' : buyText(price, g.total, g.norm, preferOz),
+        use: formatUse(g.uses.lunch.concat(g.uses.dinner)),
+        useLunch: g.meals.lunch ? formatUse(g.uses.lunch) : '',
+        useDinner: g.meals.dinner ? formatUse(g.uses.dinner) : '',
         total: describe(g.total, g.norm, { shopping: true, pantry: pantry, preferOz: preferOz }),
         lunch: g.meals.lunch ? describe(g.lunch, g.norm, { pantry: pantry, preferOz: preferOz }) : null,
         dinner: g.meals.dinner ? describe(g.dinner, g.norm, { pantry: pantry, preferOz: preferOz }) : null
@@ -233,6 +300,7 @@
     addLine: addLine,
     isEmpty: isEmpty,
     describe: describe,
+    formatUse: formatUse,
     formatWeight: formatWeight,
     formatVolume: formatVolume,
     build: build,
