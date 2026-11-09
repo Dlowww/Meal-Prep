@@ -10,6 +10,7 @@
   var MIN_CAL_FACTOR = 0.6;    // only fetch recipes whose serving is 60%..150% of the meal target,
   var MAX_CAL_FACTOR = 1.5;    // so portions stay a sensible size
   var Tuning = (typeof module !== 'undefined' && module.exports) ? require('./tuning.js') : root.Tuning;
+  var Prices = (typeof module !== 'undefined' && module.exports) ? require('./prices.js') : root.Prices;
 
   // ---------- reading Spoonacular data ----------
   var NUTRIENT_NAMES = { Calories: 'calories', Protein: 'protein', Carbohydrates: 'carbs', Fat: 'fat' };
@@ -46,7 +47,7 @@
 
   /**
    * Per-serving nutrition of each ingredient, as compact rows:
-   * [id, name, calories, protein, carbs, fat]. Used for macro tuning.
+   * [id, name, calories, protein, carbs, fat, amount, unit]. Used for macro tuning and pricing.
    */
   function ingredientNutrition(nutrition) {
     var list = nutrition && nutrition.ingredients;
@@ -55,7 +56,7 @@
     return list.map(function (ing) {
       var v = { calories: 0, protein: 0, carbs: 0, fat: 0 };
       (ing.nutrients || []).forEach(function (n) { var k = NUTRIENT_NAMES[n.name]; if (k) v[k] = Number(n.amount) || 0; });
-      return [ing.id || null, ing.name || '', r2(v.calories), r2(v.protein), r2(v.carbs), r2(v.fat)];
+      return [ing.id || null, ing.name || '', r2(v.calories), r2(v.protein), r2(v.carbs), r2(v.fat), Number(ing.amount) || 0, ing.unit || ''];
     });
   }
 
@@ -138,7 +139,7 @@
    */
   function searchKey(settings, mealTarget) {
     var d = settings.diet || {};
-    return JSON.stringify(['v2',   // bump when search results need refetching (v2: per-ingredient nutrition)
+    return JSON.stringify(['v3',   // bump when search results need refetching (v3: per-ingredient amounts for pricing)
       Math.round(mealTarget.calories), Math.round(mealTarget.protein), Math.round(mealTarget.carbs), Math.round(mealTarget.fat),
       d.type || '', (d.intolerances || []).slice().sort(), cleanList(d.exclude).map(function (s) { return s.toLowerCase(); }).sort(),
       settings.budget || 0, settings.servings ? [settings.servings.lunch, settings.servings.dinner] : []
@@ -193,6 +194,36 @@
   function toPct(err) { return Math.max(0, Math.round((1 - err) * 100)); }
 
   /**
+   * Cost of one recipe serving (before portion sizing), in dollars, priced from
+   * the built-in price list with any tuning applied. Falls back to Spoonacular's
+   * own estimate only when we don't know the ingredient amounts.
+   */
+  function servingCost(recipe, tuning) {
+    var total = 0, priced = false;
+    if (recipe.ingredients && recipe.ingredients.length) {
+      var servings = recipe.servings || 1;
+      recipe.ingredients.forEach(function (ing) {
+        if (!(ing.amount > 0)) return;
+        total += Prices.usedCost(ing.amount / servings, ing.unit, ing.name) * Tuning.multFor(tuning, ing);
+        priced = true;
+      });
+    } else if (recipe.ingNut && recipe.ingNut.length && recipe.ingNut[0].length > 6) {
+      recipe.ingNut.forEach(function (row) {
+        if (!(row[6] > 0)) return;
+        var m = tuning && tuning.mults ? tuning.mults[Tuning.partKey(row[0], row[1])] : null;
+        total += Prices.usedCost(row[6], row[7], row[1]) * (m == null ? 1 : m);
+        priced = true;
+      });
+    }
+    if (!priced) total = (recipe.pricePerServing || 0) / 100;
+    if (tuning && tuning.addon) {
+      var a = Tuning.addonByKey(tuning.addon.key);
+      if (a) total += Prices.usedCost(tuning.addon.grams, 'g', a.name);
+    }
+    return total;
+  }
+
+  /**
    * Scores a recipe for one meal. Lower `score` is better.
    * options:
    *   budget, totalPortions  favor cheaper recipes
@@ -215,13 +246,7 @@
     if (factor > 2) penalty += (factor - 2) * 0.1;          // very big portions
     if (factor < 0.5) penalty += (0.5 - factor) * 0.2;      // very small portions
 
-    // Add-on cost per recipe serving, in dollars.
-    var addonCost = 0;
-    if (tuning && tuning.addon) {
-      var a = Tuning.addonByKey(tuning.addon.key);
-      if (a) addonCost = tuning.addon.grams / 100 * a.price100;
-    }
-    var costPerPortion = ((recipe.pricePerServing || 0) / 100 + addonCost) * factor;   // dollars
+    var costPerPortion = servingCost(recipe, tuning && tuning.tuned ? tuning : null) * factor;   // dollars
     var perPortionBudget = null;
     if (opts.budget > 0 && opts.totalPortions > 0) {
       perPortionBudget = opts.budget / opts.totalPortions;
@@ -402,6 +427,7 @@
     optionsFor: optionsFor,
     batchMultiplier: batchMultiplier,
     batchPlan: batchPlan,
+    servingCost: servingCost,
     formatAddonAmount: formatAddonAmount,
     tuningSummary: tuningSummary,
     ingredientNutrition: ingredientNutrition,

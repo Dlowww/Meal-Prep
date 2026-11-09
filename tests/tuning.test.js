@@ -163,6 +163,6 @@ test('reads per-ingredient nutrition from Spoonacular data', () => {
     { id: 5062, name: 'chicken breast', amount: 4, unit: 'oz', nutrients: [
       { name: 'Calories', amount: 136.08, unit: 'kcal' }, { name: 'Protein', amount: 25.36, unit: 'g' },
       { name: 'Carbohydrates', amount: 0, unit: 'g' }, { name: 'Fat', amount: 2.95, unit: 'g' }, { name: 'Sodium', amount: 50, unit: 'mg' } ] } ] });
-  assert.deepEqual(rows, [[5062, 'chicken breast', 136.08, 25.36, 0, 2.95]]);
+  assert.deepEqual(rows, [[5062, 'chicken breast', 136.08, 25.36, 0, 2.95, 4, 'oz']]);
   assert.deepEqual(R.ingredientNutrition(undefined), []);
 });

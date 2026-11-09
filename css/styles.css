@@ -372,3 +372,7 @@ input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-i
 .g-item.is-checked .g-text { opacity: .45; }
 .g-item.is-checked .g-line { text-decoration: line-through; }
 .g-reset { color: var(--muted); }
+.g-row { grid-template-columns: 32px 1fr auto; }
+.g-price { display: grid; justify-items: end; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; padding-top: 2px; }
+.g-price small { font-weight: 500; font-size: .75rem; color: var(--muted); }
+.g-item.is-checked .g-price { opacity: .45; }

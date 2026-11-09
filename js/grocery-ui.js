@@ -31,6 +31,13 @@
     return [p.lunch && p.lunch.recipe ? p.lunch.recipe.id : '-', p.dinner && p.dinner.recipe ? p.dinner.recipe.id : '-'].join('|');
   }
 
+  function priceHtml(it) {
+    if (!(it.cost > 0)) return '';
+    var pack = it.packs ? (it.packs > 1 ? it.packs + ' × ' : '') + it.packLabel : '';
+    return '<span class="g-price">' + (it.priceKnown ? '' : '~') + R.formatMoney(it.cost) +
+      (pack ? '<small>' + esc(pack) + '</small>' : '') + '</span>';
+  }
+
   function itemHtml(it, checked) {
     var split = '';
     if (it.meals.length === 2) {
@@ -48,6 +55,7 @@
           (it.total.note ? '<span class="g-note">' + esc(it.total.note) + '</span>' : '') +
           split +
         '</span>' +
+        (it.section === 'pantry' ? '' : priceHtml(it)) +
       '</label></li>';
   }
 
@@ -67,16 +75,9 @@
       '<span class="g-sec-count">' + (left ? left + ' left' : 'done ✓') + '</span></h3>' + list + '</section>';
   }
 
-  function costHtml(plans) {
+  function costHtml(list) {
     var s = state();
-    var total = 0, parts = [];
-    ['lunch', 'dinner'].forEach(function (m) {
-      var p = plans[m];
-      if (!p) return;
-      var c = p.evaluation.costPerPortion * s.servings[m];
-      total += c;
-      parts.push((m === 'lunch' ? 'Lunch ' : 'Dinner ') + R.formatMoney(c));
-    });
+    var total = list.total;
     var budget = Number(s.budget) || 0;
     var status = '';
     if (budget > 0) {
@@ -84,10 +85,13 @@
         ? '<p class="g-budget g-over" role="alert">Over your ' + R.formatMoney(budget) + ' budget by <b>' + R.formatMoney(total - budget) + '</b>. Try a cheaper recipe on the Recipes tab.</p>'
         : '<p class="g-budget g-under">Within your ' + R.formatMoney(budget) + ' budget (' + R.formatMoney(budget - total) + ' to spare) ✓</p>';
     }
+    var notes = ['Typical US supermarket prices; whole packages, so leftovers are included.'];
+    if (list.pantryTotal > 0) notes.push('Pantry staples aren\'t included.');
+    if (list.guessedCount) notes.push(list.guessedCount + ' item' + (list.guessedCount > 1 ? 's are' : ' is') + ' a rough guess (marked ~).');
     return '<div class="g-cost">' +
-      '<div class="g-cost-main"><span class="g-cost-label">Estimated cost this week</span><span class="g-cost-num">' + R.formatMoney(total) + '</span></div>' +
-      '<p class="g-cost-split">' + parts.join(' · ') + '</p>' + status +
-      '<p class="hint">Estimates from Spoonacular; your store\'s prices will vary.</p></div>';
+      '<div class="g-cost-main"><span class="g-cost-label">Estimated checkout total</span><span class="g-cost-num">' + R.formatMoney(total) + '</span></div>' +
+      status +
+      '<p class="hint">' + notes.join(' ') + '</p></div>';
   }
 
   function render() {
@@ -116,9 +120,8 @@
         '<button type="button" class="btn-inline" data-action="go-recipes">Pick a ' + missing + '</button></p>';
     }
 
-    html += costHtml(plans);
-
     var list = G.build(plans);
+    html += costHtml(list);
     var shopKeys = [];
     list.sections.forEach(function (sec) { if (sec.key !== 'pantry') sec.items.forEach(function (it) { shopKeys.push(it.key); }); });
     var done = shopKeys.filter(function (k) { return g.checked[k]; }).length;
